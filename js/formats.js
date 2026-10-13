@@ -60,7 +60,7 @@ const ascii = (bytes, off, len) => {
   for (let i = 0; i < len; i++) s += String.fromCharCode(bytes[off + i] || 0);
   return s;
 };
-const has = (bytes, str, off) => ascii(bytes, off, str.length) === str;
+const has = (bytes, str, off = 0) => ascii(bytes, off, str.length) === str;
 
 /**
  * Identify a music file from its bytes.
