@@ -16,6 +16,7 @@ const ENGINE = {
       noInitialRun: true,
       print: () => {},
       printErr: () => {},
+      wasmBinary: opts && opts.wasmBinary,
       locateFile: (path) => (base && !/^[a-z]+:|^\//i.test(path) ? base + path : path),
       onAbort: (w) => { throw new Error('wasm abort: ' + (w && w.message || w)); }
     });

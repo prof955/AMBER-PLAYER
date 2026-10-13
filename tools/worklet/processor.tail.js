@@ -66,9 +66,10 @@ class ChipEngineProcessor extends AudioWorkletProcessor {
    * when the main thread tells us where the engine's .wasm files live (the
    * worklet scope cannot resolve URLs on its own).
    */
-  ensureModule(base) {
+  ensureModule(base, wasmBinary) {
     if (this.modPromise) return this.modPromise;
-    this.modPromise = ENGINE.createModule({ base: base || '' }).then((mod) => {
+    this.port.postMessage({ event: 'event', level: 'info', msg: 'ensureModule: wasmBinary len=' + (wasmBinary ? wasmBinary.length : 'NULL') + ' type=' + typeof wasmBinary + ' isUint8=' + (wasmBinary instanceof Uint8Array) });
+    this.modPromise = ENGINE.createModule({ base: base || '', wasmBinary }).then((mod) => {
       this.mod = mod;
       this.ready = true;
       this.port.postMessage({ event: 'ready', version: ENGINE.version(mod) });
@@ -87,7 +88,7 @@ class ChipEngineProcessor extends AudioWorkletProcessor {
     if (!msg || !msg.cmd) return;
     if (!this.ready) {                 // engine not compiled yet -> queue it
       this.queue.push(msg);
-      if (msg.cmd === 'load') this.ensureModule(msg.base);   // first load kicks it off
+      if (msg.cmd === 'load') this.ensureModule(msg.base, msg.wasmBinary);   // first load kicks it off
       return;
     }
     const reply = (payload) => this.port.postMessage({ id: msg.id, ...payload });

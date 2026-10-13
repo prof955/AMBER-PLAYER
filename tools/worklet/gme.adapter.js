@@ -18,8 +18,7 @@ const ENGINE = {
       noInitialRun: true,
       print: () => {},
       printErr: () => {},
-      // the .wasm sits next to the worklet script; the main thread tells us
-      // where that is (worklet scopes have no document to resolve against)
+      wasmBinary: opts && opts.wasmBinary,
       locateFile: (path) => (base && !/^[a-z]+:|^\//i.test(path) ? base + path : path),
       onAbort: (w) => { throw new Error('wasm abort: ' + (w && w.message || w)); }
     });

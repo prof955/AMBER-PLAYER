@@ -43,7 +43,11 @@ export class Playlist {
         el('span', { class: 'idx', text: String(i + 1).padStart(2, '0') }),
         el('span', { class: 'nm', title: it.name + (it.error ? '\n' + it.error : ''), text: it.title || it.name }),
         el('span', { class: 'tag', text: (it.kind || '?') + (it.error ? ' !' : '') }),
-        el('span', { class: 'tm', text: it.duration ? fmtTime(it.duration) : (it.size ? fmtBytes(it.size) : '—') })
+        el('span', { class: 'tm', text: it.duration ? fmtTime(it.duration) : (it.size ? fmtBytes(it.size) : '—') }),
+        el('span', {
+          class: 'del', text: '×', title: 'Kaldır',
+          onclick: (e) => { e.stopPropagation(); const was = it.id === this.currentId; this.remove(it.id); if (this.onRemove) this.onRemove(it); }
+        })
       ]);
       if (it.error) row.style.color = 'var(--warn)';
       this.root.append(row);
@@ -56,8 +60,14 @@ export class Playlist {
   toM3U() {
     const lines = ['#EXTM3U'];
     for (const it of this.items) {
-      if (!it.tracks.length) lines.push(it.name);
-      else for (const t of it.tracks) lines.push(`#EXTINF:-1,${it.name} :: ${t.title || 'track ' + (t.index + 1)}`);
+      if (!it.tracks.length) {
+        lines.push(it.name);
+      } else {
+        for (const t of it.tracks) {
+          lines.push("#EXTINF:-1," + it.name + " :: " + (t.title || ("track " + (t.index + 1))));
+          lines.push(it.name);
+        }
+      }
     }
     return lines.join('\n') + '\n';
   }

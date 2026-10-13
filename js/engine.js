@@ -198,6 +198,18 @@ export class Engine {
   }
 
   // ------------------------------------------------------------------ load
+
+  async fetchWasmBinary(name) {
+    if (!this.wasmBinaries) this.wasmBinaries = new Map();
+    if (this.wasmBinaries.has(name)) return this.wasmBinaries.get(name);
+    const url = this.wasmBase(name) + name + '.wasm';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error();
+    const buf = new Uint8Array(await res.arrayBuffer());
+    this.wasmBinaries.set(name, buf);
+    return buf;
+  }
+
   async load(bytes, name, engineName, { multichannel = true, scan = false } = {}) {
     await this.init();
     await this.ensureEngine(engineName);
@@ -215,7 +227,8 @@ export class Engine {
     }
     const node = scan ? this._scanNode(engineName) : this._playNode(engineName);
     const payload = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-    const res = await this.call('load', { bytes: payload, opts: { multichannel }, base: this.wasmBase(engineName) }, node);
+    const wasmBinary = await this.fetchWasmBinary(engineName);
+    const res = await this.call('load', { bytes: payload, opts: { multichannel }, base: this.wasmBase(engineName), wasmBinary }, node);
     const meta = res.meta || {};
     if (!scan) {
       this.playEngine = engineName;
@@ -254,8 +267,9 @@ export class Engine {
     await this.ensureEngine(engineName);
     const payload = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
     if (this.mode === 'compat') return this.compat.scan(payload, engineName);
+    const wasmBinary = await this.fetchWasmBinary(engineName);
     // a metadata read is a nicety: give it a shorter budget than playback
-    const res = await this.call('load', { bytes: payload, opts: { multichannel: false }, base: this.wasmBase(engineName) },
+    const res = await this.call('load', { bytes: payload, opts: { multichannel: false }, base: this.wasmBase(engineName), wasmBinary },
       this._scanNode(engineName), 8000);
     return { meta: res.meta || {}, channels: res.channels, channelNames: res.channelNames };
   }
