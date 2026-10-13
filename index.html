@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHIPTUNE CONSOLE — VGM / NSF / SPC / GBS / MOD PLAYER</title>
+<meta name="description" content="Tarayıcıda çalışan chiptune konsolu: NSF, NSFE, SPC, GBS, VGM, VGZ, GYM, HES, KSS, AY, SAP, MOD, XM, S3M, IT dosyalarını ve ZIP arşivlerini çalar.">
+<link rel="stylesheet" href="css/console.css?v=3">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230a0703'/><g fill='%23ffb000'><rect x='5' y='14' width='3' height='10'/><rect x='10' y='9' width='3' height='15'/><rect x='15' y='4' width='3' height='20'/><rect x='20' y='11' width='3' height='13'/><rect x='25' y='17' width='3' height='7'/></g></svg>">
+</head>
+<body>
+<div id="crt">
+  <div id="scanlines" aria-hidden="true"></div>
+
+  <!-- ══════════════════════════ STATUS BAR ══════════════════════════ -->
+  <header id="statusbar" class="bar">
+    <span id="clock" class="seg">--:--:--</span>
+    <span class="sep">│</span>
+    <span class="seg">AUDIO: <b id="ctx-state" class="hl">OFFLINE</b></span>
+    <span class="sep">│</span>
+    <span class="seg">ENGINE: <b id="engine-name" class="hl">—</b></span>
+    <span class="sep">│</span>
+    <span class="seg">SOURCE: <b id="source-label" class="hl">NONE</b></span>
+    <span class="sep">│</span>
+    <span class="seg">QUEUE: <b id="queue-count" class="hl">0</b></span>
+    <span class="grow"></span>
+    <span class="seg uri">
+      <label for="url-input">URL:</label>
+      <input id="url-input" type="text" spellcheck="false" placeholder="https://.../tune.nsf">
+      <button id="url-load" class="btn tiny">FETCH</button>
+    </span>
+    <span class="sep">│</span>
+    <span class="seg">CHIPTUNE CONSOLE <b class="hl">v1.0</b></span>
+    <span class="led" id="activity-led" title="audio activity"></span>
+  </header>
+
+  <!-- ══════════════════════════ MAIN GRID ══════════════════════════ -->
+  <main id="main">
+
+    <!-- ─────────── LEFT COLUMN ─────────── -->
+    <section class="col left">
+      <div class="panel" id="panel-track">
+        <div class="panel-head"><span class="title">TRACK INFO</span><span class="sub" id="track-format">—</span></div>
+        <div class="panel-body track-info">
+          <div class="field"><span class="k">TITLE</span><span class="v" id="ti-title">—</span></div>
+          <div class="field"><span class="k">GAME</span><span class="v" id="ti-game">—</span></div>
+          <div class="field"><span class="k">AUTHOR</span><span class="v" id="ti-author">—</span></div>
+          <div class="field"><span class="k">SYSTEM</span><span class="v" id="ti-system">—</span></div>
+          <div class="field"><span class="k">COPYRIGHT</span><span class="v" id="ti-copyright">—</span></div>
+          <div class="field"><span class="k">DUMPER</span><span class="v" id="ti-dumper">—</span></div>
+          <div class="field"><span class="k">COMMENT</span><span class="v dim" id="ti-comment">—</span></div>
+        </div>
+      </div>
+
+      <div class="panel grow" id="panel-voices">
+        <div class="panel-head"><span class="title">INPUT CHANNEL GAINS</span><span class="sub" id="voices-sub">(AMBER)</span></div>
+        <div class="panel-body voice-list" id="voice-list"><!-- rows injected --></div>
+      </div>
+
+      <div class="panel" id="panel-out">
+        <div class="panel-head"><span class="title">OUTPUT ROUTING</span></div>
+        <div class="panel-body routing">
+          <div class="row" id="routing-chips"></div>
+          <div class="hint">CHIP SESLERİ → <b>STEREO BUS</b> → EQ → LIMITER → ÇIKIŞ</div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-fmt">
+        <div class="panel-head"><span class="title">SAMPLING RATE / FORMAT</span></div>
+        <div class="panel-body two-col">
+          <div class="field"><span class="k">RATE</span><span class="v" id="fx-rate">—</span></div>
+          <div class="field"><span class="k">LATENCY</span><span class="v" id="fx-latency">—</span></div>
+          <div class="field"><span class="k">BIT DEPTH</span><span class="v" id="fx-depth">16 bit</span></div>
+          <div class="field"><span class="k">ENGINE</span><span class="v" id="fx-engine">—</span></div>
+          <div class="field"><span class="k">FORMAT</span><span class="v" id="fx-format">—</span></div>
+          <div class="field"><span class="k">MODE</span><span class="v" id="fx-mode">—</span></div>
+        </div>
+      </div>
+
+      <div class="panel grow" id="panel-log">
+        <div class="panel-head"><span class="title">PLAYER EVENT LOG</span><span class="sub" id="log-count">(0)</span></div>
+        <div class="panel-body log" id="log-body"></div>
+      </div>
+    </section>
+
+    <!-- ─────────── CENTER COLUMN ─────────── -->
+    <section class="col center">
+      <div class="big-readout">
+        <div class="time-block">
+          <div class="big" id="pos-time">00:00</div>
+          <div class="sub-line"><span id="total-time">--:--</span> · <span id="pos-status">STOPPED</span></div>
+        </div>
+        <div class="db-block">
+          <div class="big db" id="db-readout">-∞ dB</div>
+          <div class="sub-line">
+            <span class="chip" id="chip-input" title="aktif kaynak">INPUT: FILE</span>
+            <button class="btn tiny" id="btn-open-file">FILE</button>
+            <button class="btn tiny" id="btn-open-zip">ZIP</button>
+            <button class="btn tiny" id="btn-open-rom">ROM</button>
+            <button class="btn tiny" id="btn-open-selftest" title="Bu depoda üretilmiş iki demoyu (VGM + MOD) yükleyip çalar">DEMO ÇAL</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel grow" id="panel-spectrum">
+        <div class="panel-head"><span class="title">AUDIO SPECTRUM ANALYSER</span><span class="sub" id="spec-sub">FFT 4096 · LOG</span></div>
+        <div class="panel-body canvas-wrap">
+          <canvas id="spectrum"></canvas>
+          <div class="scale-labels" id="spec-scale"></div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-scope">
+        <div class="panel-head"><span class="title">WAVEFORM / OSCILLOSCOPE</span><span class="sub" id="scope-sub">2048 samples</span></div>
+        <div class="panel-body canvas-wrap short">
+          <canvas id="scope"></canvas>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-tracklist">
+        <div class="panel-head"><span class="title">SUBTUNES / TRACKLIST</span><span class="sub" id="tl-sub">—</span></div>
+        <div class="panel-body tracklist" id="tracklist-body"></div>
+      </div>
+    </section>
+
+    <!-- ─────────── RIGHT COLUMN ─────────── -->
+    <section class="col right">
+      <div class="panel" id="panel-eq">
+        <div class="panel-head"><span class="title">AUDIO CONTROLS</span><span class="sub">(AMBER)</span></div>
+        <div class="panel-body">
+          <div class="section-label">EQ PRESETS</div>
+          <div class="eq-presets" id="eq-presets"></div>
+          <div class="section-label">MASTER TONE</div>
+          <div class="slider-rows">
+            <div class="slider-row"><span class="k">BASS</span><input id="eq-bass" type="range" min="-15" max="15" step="1" value="0"><span class="val" id="eq-bass-v">+0</span></div>
+            <div class="slider-row"><span class="k">MID</span><input id="eq-mid" type="range" min="-15" max="15" step="1" value="0"><span class="val" id="eq-mid-v">+0</span></div>
+            <div class="slider-row"><span class="k">TREBLE</span><input id="eq-treble" type="range" min="-15" max="15" step="1" value="0"><span class="val" id="eq-treble-v">+0</span></div>
+            <div class="slider-row"><span class="k">VOLUME</span><input id="master-vol" type="range" min="0" max="100" step="1" value="80"><span class="val" id="master-vol-v">80</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-inputs">
+        <div class="panel-head"><span class="title">INPUT CHANNELS</span><span class="sub" id="inputs-sub">—</span></div>
+        <div class="panel-body input-channels" id="input-channels"></div>
+      </div>
+
+      <div class="panel" id="panel-playopts">
+        <div class="panel-head"><span class="title">PLAYBACK OPTIONS</span></div>
+        <div class="panel-body">
+          <div class="slider-row"><span class="k">TEMPO</span><input id="opt-tempo" type="range" min="0.5" max="2" step="0.05" value="1"><span class="val" id="opt-tempo-v">1.00x</span></div>
+          <div class="opt-grid" id="opt-playlength"></div>
+          <div class="opt-grid" id="opt-loop"></div>
+          <div class="opt-grid" id="opt-fade"></div>
+          <div class="hint" id="play-opts-hint">PLAY LENGTH · LOOP · FADE-OUT</div>
+        </div>
+      </div>
+
+      <div class="panel grow" id="panel-formats">
+        <div class="panel-head"><span class="title">SUPPORTED CHIPS / FORMATS</span><span class="sub" id="fmt-sub">—</span></div>
+        <div class="panel-body formats" id="formats-body"></div>
+      </div>
+
+      <div class="panel" id="panel-rom" hidden>
+        <div class="panel-head"><span class="title">ROM INSPECTOR</span><span class="sub" id="rom-sub">—</span></div>
+        <div class="panel-body rom" id="rom-body"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ══════════════════════════ PLAYBACK BAND ══════════════════════════ -->
+  <footer id="playback">
+    <div class="panel" id="panel-queue">
+      <div class="panel-head"><span class="title">PLAYLIST / ARCHIVE</span><span class="sub" id="queue-sub">0 items</span></div>
+      <div class="panel-body queue" id="queue-body"></div>
+      <div class="queue-actions">
+        <button class="btn tiny" id="btn-clear">CLEAR</button>
+        <button class="btn tiny" id="btn-shuffle">SHUFFLE</button>
+        <button class="btn tiny" id="btn-save">SAVE .m3u</button>
+        <button class="btn tiny" id="btn-save-wav" title="Çalan parçayı 16-bit WAV olarak indir">SAVE .WAV</button>
+        <button class="btn tiny" id="btn-diag" title="Sistem / ses / format tanısı çalıştır ve sonucu günlüğe yaz">TANI</button>
+        <button class="btn tiny" id="btn-help" title="Nasıl denenir? (hızlı başlangıç rehberi)">YARDIM</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-transport">
+      <div class="panel-head"><span class="title">PLAYBACK</span><span class="sub" id="np-label">—</span></div>
+      <div class="panel-body transport">
+        <div class="timeline">
+          <input id="seek" type="range" min="0" max="1000" value="0" step="1">
+          <div class="ticks" id="seek-ticks"></div>
+          <div class="markers" id="seek-markers"></div>
+        </div>
+        <div class="transport-buttons">
+          <button class="btn icon" id="btn-prev"  title="Önceki (P)">|◀</button>
+          <button class="btn icon" id="btn-stop"  title="Durdur (S)">■</button>
+          <button class="btn icon big" id="btn-play" title="Çal / Duraklat (Space)">▶</button>
+          <button class="btn icon" id="btn-next"  title="Sonraki (N)">▶|</button>
+          <button class="btn icon" id="btn-repeat" title="Tekrar modu">REP</button>
+          <button class="btn icon" id="btn-shuffle2" title="Karıştır (shuffle)">SHF</button>
+          <button class="btn icon" id="btn-mute" title="Sustur (M)">VOL</button>
+        </div>
+        <div class="transport-info">
+          <span class="tv"><span class="k">NOW</span><span class="v" id="np-now">—</span></span>
+          <span class="tv"><span class="k">TRACK</span><span class="v" id="np-track">—</span></span>
+          <span class="tv"><span class="k">PATTERN</span><span class="v" id="np-pattern">—</span></span>
+          <span class="tv"><span class="k">LEVELS</span><span class="v" id="np-levels">—</span></span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- hidden file inputs -->
+  <input type="file" id="file-input" multiple accept="*/*" hidden>
+  <input type="file" id="zip-input"  accept=".zip,.vgz,.gz,.m3u" hidden>
+  <input type="file" id="rom-input"  multiple accept=".nes,.sfc,.smc,.gb,.gbc,.gba,.md,.gen,.smd,.bin,.z64,.n64,.sms,.gg,.a26" hidden>
+
+  <div id="drop-overlay" hidden><div class="drop-inner">
+    <div class="drop-title">DOSYALARI BURAYA BIRAK</div>
+    <div class="drop-sub">chiptune · tracker modülü · zip arşivi · ROM</div>
+  </div></div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   boot guard — runs before the app module so a failure is never silent.
+
+   Known hosts this console gets opened in:
+     file://  direct from disk      -> browser blocks modules + WASM
+     blob:/data:  embedded preview  -> module fetch has no base URL, blocked
+     http(s)  real server / Pages   -> boots normally (nothing is shown)
+--------------------------------------------------------------------------- */
+(function () {
+  function banner(title, lines) {
+    if (document.getElementById('boot-banner')) return;
+    var box = document.createElement('div');
+    box.id = 'boot-banner';
+    box.setAttribute('style', 'position:fixed;inset:0;z-index:9999;background:rgba(6,4,1,.97);' +
+      'color:#ffb000;font:14px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;' +
+      'display:flex;align-items:center;justify-content:center;padding:24px;text-align:left');
+    var body = '<div style="color:#ffd478;letter-spacing:.14em;font-size:15px;margin-bottom:12px">' +
+      'CHIPTUNE CONSOLE — ' + title + '</div>';
+    for (var i = 0; i < lines.length; i++) body += '<div style="margin:7px 0;max-width:640px">' + lines[i] + '</div>';
+    box.innerHTML = '<div style="max-width:680px;border:2px solid #ffb000;padding:20px 24px;' +
+      'box-shadow:0 0 44px rgba(255,176,0,.35);background:linear-gradient(180deg,#150e04,#0a0703)">' + body + '</div>';
+    document.body.appendChild(box);
+  }
+  window.__chipBootGuard = banner;
+
+  var LOCAL = [
+    'Yerel klasörde: <b>python3 tools/serve.py</b> (ya da <b>python3 -m http.server 8088</b>) çalıştır, ' +
+    'sonra <b>http://localhost:8088</b> aç.',
+    'İnternete koymanın en kolay yolu: projeyi <b>GitHub</b>&rsquo;a yükleyip <b>Settings → Pages</b> ile yayınla — ' +
+    'ayrıntılar README.md içinde.'
+  ];
+
+  if (location.protocol === 'file:') {
+    banner('BU SAYFA DOSYADAN AÇILDI (file://)', [
+      'Tarayıcı güvenliği bu modda <b>ES modüllerini</b> ve <b>WASM indirmeyi</b> engeller: ' +
+      'ekran görünür ama düğmeler çalışmaz, müzik çalmaz.'
+    ].concat(LOCAL));
+    return;
+  }
+  if (location.protocol === 'blob:' || location.protocol === 'data:') {
+    banner('GÖMÜLÜ ÖNİZLEME ÇERÇEVESİ (blob:)', [
+      'Bu sayfa bir tarayıcı-içi önizleme çerçevesinde çalışıyor. Bu modda dosya yolları ' +
+      'çözülemediği için <b>js/main.js</b> yüklenemiyor — uygulama bu yüzden susuyor.',
+      'Çözüm: projeyi gerçek bir adresten açmak.'
+    ].concat(LOCAL));
+    return;
+  }
+  setTimeout(function () {
+    if (window.CHIP) return;                       // app booted fine
+    banner('UYGULAMA YÜKLENEMEDİ', [
+      'Sayfa açıldı ama <b>js/main.js</b> çalışmadı. Olası nedenler: dosyalar eksik, ' +
+      'ya da çerçeve ağ erişimini engelliyor.',
+      'Konsolu açıp (F12) ilk kırmızı satıra bakmak en hızlı yol.'
+    ].concat(LOCAL));
+  }, 5000);
+})();
+</script>
+<script type="module" src="js/main.js?v=3"></script>
+</body>
+</html>
