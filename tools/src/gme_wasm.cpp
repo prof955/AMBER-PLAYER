@@ -57,7 +57,7 @@ API const char* gme2_warning() { if (!g_emu) return ""; const char* w = gme_warn
 API const char* gme2_last_error() { return g_lastError.c_str(); }
 
 // Channels the *playback* instance renders per sample frame (2 = stereo).
-API int gme2_out_channels() { return g_emu && g_multichan ? 16 : 2; }
+API int gme2_out_channels() { return (g_emu && g_multichan) ? gme_voice_count(g_emu) * 2 : 2; }
 
 // ------------------------------------------------------------- life cycle ---
 // Returns NULL on success, otherwise a (copyable) error/status message.
@@ -205,7 +205,7 @@ API short* gme2_buf() { return g_pcm.empty() ? nullptr : g_pcm.data(); }
 API int gme2_play(int frames)
 {
     if (!g_emu || frames <= 0) return 1;
-    int chans = g_multichan ? 16 : 2;
+    int chans = g_multichan ? gme_voice_count(g_emu) * 2 : 2;
     size_t need = (size_t)frames * chans;
     if (g_pcm.size() < need) g_pcm.resize(need);
     gme_err_t err = gme_play(g_emu, (int)need, g_pcm.data());

@@ -130,9 +130,10 @@ const ENGINE = {
       const gr = g * (pan >= 0 ? 1 : 1 + pan * 0.85);
       let peak = 0;
       const base = v * 2;
+      const stride = nv * 2;
       for (let f = 0; f < frames; f++) {
-        const l = heap[f * 16 + base] * S;
-        const r = heap[f * 16 + base + 1] * S;
+        const l = heap[f * stride + base] * S;
+        const r = heap[f * stride + base + 1] * S;
         const a = (l < 0 ? -l : l) + (r < 0 ? -r : r);
         if (a > peak) peak = a;
         outL[f] += l * gl;

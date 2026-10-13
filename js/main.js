@@ -7,7 +7,7 @@ import { Playlist } from './playlist.js';
 import { Player } from './player.js';
 import { UI, EQ_PRESETS } from './ui.js';
 import { Spectrum, Scope } from './viz.js';
-import { sniff, isZip, isGzip, isPlaylist, ACCEPT_HINT, MUSIC_EXT, ENGINE_INFO } from './formats.js';
+import { sniff, scanEmbedded, isZip, isGzip, isPlaylist, ACCEPT_HINT, MUSIC_EXT, ENGINE_INFO } from './formats.js';
 import { listZip, extractAll, gunzip } from './zip.js';
 import { inspectRom } from './rom.js';
 import { DEMO_VGM_B64, DEMO_MOD_B64 } from './demo.js';
@@ -152,6 +152,15 @@ async function ingest(name, bytes, origin = 'FILE', depth = 0) {
   // chiptune / tracker music ----------------------------------------------
   const info = sniff(bytes, name);
   if (info) return addItem(name, bytes, info.engine, info.kind, origin);
+
+  // embedded chiptune inside ROM / binary container -----------------------
+  const embedded = scanEmbedded(bytes);
+  if (embedded) {
+    const ext = embedded.info.kind.toLowerCase();
+    const cleanName = name.replace(/\.[a-z0-9]+$/i, '') + '.' + ext;
+    ui.log.push('ROM içinden gömülü ' + embedded.info.kind + ' müziği çıkarıldı (konum: 0x' + embedded.offset.toString(16).toUpperCase() + ')', 'ok');
+    return addItem(cleanName, embedded.bytes, embedded.info.engine, embedded.info.kind, origin);
+  }
 
   // console ROM -> inspector (no audio to extract, say so honestly) --------
   const rom = inspectRom(bytes, name);

@@ -271,3 +271,68 @@ export const MUSIC_EXT = new Set([
   ...'nsf nsfe spc gbs vgm vgz gym hes kss ay sap sgc'.split(' '),
   ...'mod xm s3m it itz mdz s3z xmz 669 med dbm far mtm stm okt ult amf ams c67 dtm fnk gdm hmn imf j2b liq m15 mmd1 mmd3 mtm2 psm ptm rtm stx wow dsym mfp mms umx'.split(' ')
 ]);
+
+/**
+ * Scans a byte array (such as a ROM or container file) for embedded chiptune
+ * headers (NSF, SPC, GBS, VGM, GYM, HES, KSS, XM, IT, S3M, MOD).
+ * Returns { offset, bytes, info } or null if no embedded chiptune was found.
+ */
+export function scanEmbedded(bytes) {
+  if (!bytes || bytes.length < 32) return null;
+  const b = bytes;
+  const len = b.length;
+
+  // Search signatures
+  const sigs = [
+    { sig: [0x4e, 0x45, 0x53, 0x4d, 0x1a], kind: 'NSF' },          // NESM\x1a
+    { sig: [0x4e, 0x53, 0x46, 0x45], kind: 'NSFE' },               // NSFE
+    { sig: [0x53, 0x4e, 0x45, 0x53, 0x2d, 0x53, 0x50, 0x43, 0x37, 0x30, 0x30], kind: 'SPC' }, // SNES-SPC700
+    { sig: [0x47, 0x42, 0x53, 0x01], kind: 'GBS' },                // GBS\x01
+    { sig: [0x56, 0x67, 0x6d, 0x20], kind: 'VGM' },                // Vgm
+    { sig: [0x47, 0x59, 0x4d, 0x58], kind: 'GYM' },                // GYMX
+    { sig: [0x48, 0x45, 0x53, 0x4d], kind: 'HES' },                // HESM
+    { sig: [0x4b, 0x53, 0x53, 0x58], kind: 'KSS' },                // KSSX
+    { sig: [0x45, 0x78, 0x74, 0x65, 0x6e, 0x64, 0x65, 0x64, 0x20, 0x4d, 0x6f, 0x64, 0x75, 0x6c, 0x65, 0x3a, 0x20], kind: 'XM' }, // Extended Module:
+    { sig: [0x49, 0x4d, 0x50, 0x4d], kind: 'IT' }                  // IMPM
+  ];
+
+  for (const item of sigs) {
+    const s = item.sig;
+    const sLen = s.length;
+    for (let i = 1; i <= len - sLen; i++) {
+      let match = true;
+      for (let k = 0; k < sLen; k++) {
+        if (b[i + k] !== s[k]) { match = false; break; }
+      }
+      if (match) {
+        const sub = b.subarray(i);
+        const info = sniff(sub, 'embedded.' + item.kind.toLowerCase());
+        if (info) return { offset: i, bytes: sub, info };
+      }
+    }
+  }
+
+  // Check for S3M (SCRM at offset +44)
+  for (let i = 1; i <= len - 48; i++) {
+    if (b[i + 44] === 0x53 && b[i + 45] === 0x43 && b[i + 46] === 0x52 && b[i + 47] === 0x4d) {
+      const sub = b.subarray(i);
+      const info = sniff(sub, 'embedded.s3m');
+      if (info) return { offset: i, bytes: sub, info };
+    }
+  }
+
+  // Check for classic MOD signatures at offset +1080
+  const modRegex = /^(M\.K\.|M!K!|M&K!|N\.T\.|FLT4|FLT8|4CHN|6CHN|8CHN|2CHN|CD81|OCTA|OKTA|\d\dCH|\d\dCN)/;
+  for (let i = 1; i <= len - 1084; i++) {
+    if (b[i + 1080] === 0x4d && (b[i + 1081] === 0x2e || b[i + 1081] === 0x21 || b[i + 1081] === 0x26)) {
+      const sig = ascii(b, i + 1080, 4);
+      if (modRegex.test(sig)) {
+        const sub = b.subarray(i);
+        const info = sniff(sub, 'embedded.mod');
+        if (info) return { offset: i, bytes: sub, info };
+      }
+    }
+  }
+
+  return null;
+}

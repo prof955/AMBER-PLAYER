@@ -10,7 +10,7 @@ globalThis.document = {
   })
 };
 
-import { sniff } from '../js/formats.js';
+import { sniff, scanEmbedded } from '../js/formats.js';
 import { Playlist } from '../js/playlist.js';
 
 console.log('Running unit bug fix checks...');
@@ -62,5 +62,13 @@ assert.ok(m3u.includes('#EXTM3U'), 'm3u missing header');
 assert.ok(m3u.includes('#EXTINF:-1,test.nsf :: Track 1'), 'm3u missing track 1 metadata');
 assert.ok(m3u.includes('\ntest.nsf\n'), 'm3u missing file entry line after EXTINF');
 console.log('PASS: M3U export formatting');
+
+// 4. scanEmbedded embedded ROM music extraction
+const dummyRom = new Uint8Array(200);
+dummyRom[64] = 0x4e; dummyRom[65] = 0x45; dummyRom[66] = 0x53; dummyRom[67] = 0x4d; dummyRom[68] = 0x1a;
+const emb = scanEmbedded(dummyRom);
+assert.strictEqual(emb?.offset, 64, 'embedded music offset mismatch');
+assert.strictEqual(emb?.info?.kind, 'NSF', 'embedded music format mismatch');
+console.log('PASS: embedded music extraction from ROMs');
 
 console.log('ALL UNIT BUG CHECKS PASSED!');
